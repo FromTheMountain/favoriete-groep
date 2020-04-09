@@ -1,4 +1,4 @@
-from itertools import combinations
+from sys import argv
 
 class Group:
     def __init__(self, open_file = None):
@@ -108,7 +108,13 @@ def group_test():
     print(a * b)
 
 if __name__ == "__main__":
-    with open("favoriete-groep.txt", "r") as group_file:
+    if len(argv) != 2:
+        print("Geef de bestandsnaam als enige command line argument.")
+        exit()
+
+    file_name = argv[1]
+
+    with open(file_name, "r") as group_file:
         G = Group(group_file)
 
     # Hoofdstuk 1
@@ -125,7 +131,6 @@ if __name__ == "__main__":
     for i in G.elems:
         new_subgroup = G.subgroup_by_generators([i])
 
-        # print(set(new_subgroup))
         if any(set(new_subgroup) == set(x) for x in subgroups):
             continue
 
@@ -135,4 +140,4 @@ if __name__ == "__main__":
             print(j, end = " ")
         print()
 
-    # Hoofdstuk 2 - 8 zijn WIP.
+    # Hoofdstuk 3 - 8 zijn WIP.
