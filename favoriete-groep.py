@@ -1,4 +1,7 @@
 from sys import argv
+from itertools import combinations
+from math import log2, floor
+from functools import reduce
 
 class Group:
     def __init__(self, open_file = None):
@@ -14,6 +17,8 @@ class Group:
                 elem = self.GroupElement(self, i, g)
                 self.name_elem_map[g] = elem
                 self.elems.append(elem)
+
+            self.order = len(self.elems)
 
             self.group_matrix = [[None for _ in self.elems] \
                 for _ in self.elems]
@@ -74,8 +79,37 @@ class Group:
                     s.append(s[j] * s[i])
             i += 1
 
-        return [x.name for x in s]
+        return sorted(s, key = lambda x: x.index)
 
+    def left_coset(self, H, g):
+        return sorted([g * x for x in H], key = lambda x: x.index)
+
+    def right_coset(self, H, g):
+        return sorted([x * g for x in H], key = lambda x: x.index)
+
+    def left_cosets(self, H):
+        cosets = list()
+
+        for i in self.elems:
+            new_coset = self.left_coset(H, i)
+
+            if all(new_coset != x for x in cosets):
+                cosets.append(new_coset)
+
+        cosets.sort(key = lambda x: x[0].index)
+        return cosets
+
+    def right_cosets(self, H):
+        cosets = list()
+
+        for i in self.elems:
+            new_coset = self.right_coset(H, i)
+
+            if all(new_coset != x for x in cosets):
+                cosets.append(new_coset)
+
+        cosets.sort(key = lambda x: x[0].index)
+        return cosets
 
     class GroupElement:
         def __init__(self, group, index, name):
@@ -86,11 +120,26 @@ class Group:
         def __mul__(self, other):
             return self.group.group_operation(self, other)
 
-        def __str__(self):
-            return str(self.name)
+        def __pow__(self, other):
+            to_multiply = self.group.inverse(self) if other < 0 else self
+            res = self.group.get_identity()
+
+            for _ in range(abs(other)):
+                res *= to_multiply
+
+            return res
 
         def __eq__(self, other):
             return self.group == other.group and self.index == other.index
+
+        def __str__(self):
+            return str(self.name)
+
+        def __repr__(self):
+            return str(self)
+
+        def __hash__(self):
+            return hash(repr(self))
 
 def group_test():
     """
@@ -118,26 +167,56 @@ if __name__ == "__main__":
         G = Group(group_file)
 
     # Hoofdstuk 1
-    print("Orde: %s" % (G.group_order()))
+    print("Orde: %s" % (G.order))
     print("Identiteit: %s" % G.get_identity())
     print("Inversen van eerste 10 elementen: ", end = "")
-    for i in G.elems[:10]:
-        print(G.inverse(i), end = " ")
-    print()
+    print([x**(-1) for x in G.elems[:10]])
 
     # Hoofdstuk 2
     subgroups = []
     print("Ondergroepen: ")
-    for i in G.elems:
-        new_subgroup = G.subgroup_by_generators([i])
 
-        if any(set(new_subgroup) == set(x) for x in subgroups):
-            continue
+    # TODO: come up with a better way to generate subgroups.
+    for i in range(1, 3):
+        for j in combinations(G.elems, i):
+            # This is just a temporary hack to make generation faster. We might
+            # miss out on some subgroups because of it.
+            if any(all(y in x for y in j) for x in subgroups):
+                continue
 
-        subgroups.append(new_subgroup)
+            new_subgroup = G.subgroup_by_generators(j)
+            subgroups.append(new_subgroup)
 
-        for j in new_subgroup:
-            print(j, end = " ")
-        print()
+    print(list(filter(lambda x: len(x) > 1, subgroups))[:3])
 
-    # Hoofdstuk 3 - 8 zijn WIP.
+    # Hoofdstuk 3
+    print("Ondergroep met verschillende linker- en rechternevenklassen: ")
+    for i in subgroups:
+        left, right = G.left_cosets(i), G.right_cosets(i)
+
+        if left != right:
+            print(i)
+            print(left)
+            print(right)
+            print("Index van bovenstaande ondergroep: %d" \
+                % (G.order / len(i)))
+            break
+
+    # Hoofdstuk 4
+    print("Normaaldelers: ")
+    for i in subgroups:
+        if G.left_cosets(i) == G.right_cosets(i):
+            print(i)
+
+    print("Centrum: ")
+    print([x for x in G.elems if all(x * y == y * x for y in G.elems)])
+
+    print("Commutatoren: ")
+    commutators = set()
+    for x in G.elems:
+        for y in G.elems:
+            commutators.add(x**(-1) * y**(-1) * x * y)
+
+    print(sorted(commutators, key = lambda x: x.index))
+
+    # Hoofdstuk 5 - 8 zijn WIP.
